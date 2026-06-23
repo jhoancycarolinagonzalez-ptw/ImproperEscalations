@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Análisis Escalaciones Impropias — Junio 2026 · Majority</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --dark: #0D0D2B;
+  --navy: #12122E;
+  --card: #1A1A3E;
+  --border: #2A2A5A;
+  --teal: #00D4AA;
+  --teal-d: rgba(0,212,170,0.15);
+  --purple: #6B4EFF;
+  --purp-d: rgba(107,78,255,0.15);
+  --red: #FF4757;
+  --red-d: rgba(255,71,87,0.15);
+  --yellow: #FFB300;
+  --yel-d: rgba(255,179,0,0.15);
+  --green: #00C853;
+  --text: #E8E8F8;
+  --muted: #8888AA;
+  --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--dark); color: var(--text); font-family: var(--font); padding: 24px; }
+
+/* HEADER */
+.header { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid var(--border); }
+.logo { background: var(--teal); color: var(--dark); font-weight: 800; font-size: 18px; padding: 8px 16px; border-radius: 8px; letter-spacing: 1px; }
+.header-text h1 { font-size: 22px; font-weight: 700; }
+.header-text p { font-size: 13px; color: var(--muted); margin-top: 2px; }
+.header-badge { margin-left: auto; background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 8px 16px; font-size: 13px; color: var(--teal); font-weight: 600; }
+
+/* LEGEND */
+.legend { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 20px; align-items: center; }
+.li { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.dot { width: 10px; height: 10px; border-radius: 50%; }
+
+/* GRIDS */
+.g6 { display: grid; grid-template-columns: repeat(6,1fr); gap: 14px; margin-bottom: 20px; }
+.g5 { display: grid; grid-template-columns: repeat(5,1fr); gap: 16px; margin-bottom: 20px; }
+.g4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; margin-bottom: 20px; }
+.g3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; margin-bottom: 20px; }
+.g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+.g2-3 { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin-bottom: 20px; }
+.g1 { margin-bottom: 20px; }
+
+/* CARD */
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+.card.t-teal { border-left: 4px solid var(--teal); }
+.card.t-purple { border-left: 4px solid var(--purple); }
+.card.t-red { border-left: 4px solid var(--red); }
+.card.t-yellow { border-left: 4px solid var(--yellow); }
+.card.t-green { border-left: 4px solid var(--green); }
+
+/* KPI */
+.kpi-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; }
+.kpi-val { font-size: 28px; font-weight: 800; margin: 4px 0; line-height: 1; }
+.kpi-sub { font-size: 12px; color: var(--muted); }
+.kpi-val.teal { color: var(--teal); }
+.kpi-val.purple { color: var(--purple); }
+.kpi-val.red { color: var(--red); }
+.kpi-val.yellow { color: var(--yellow); }
+.kpi-val.green { color: var(--green); }
+
+/* WEEK CARD */
+.week-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 14px; }
+.week-card .wk-title { font-size: 11px; font-weight: 700; color: var(--teal); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 2px; }
+.week-card .wk-dates { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+.week-card .wk-total { font-size: 26px; font-weight: 800; margin-bottom: 6px; }
+.week-card .wk-detail { font-size: 11px; color: var(--muted); line-height: 1.6; }
+.week-card .wk-tl { font-size: 11px; color: var(--text); margin-top: 4px; }
+
+/* SECTION HEADER */
+.sec { font-size: 13px; font-weight: 700; color: var(--teal); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+.sec::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.sec.purple { color: var(--purple); }
+.sec.yellow { color: var(--yellow); }
+.sec.red { color: var(--red); }
+
+/* BADGE */
+.badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; border: 1px solid; }
+.badge.green { background: var(--teal-d); color: var(--teal); border-color: var(--teal); }
+.badge.yellow { background: var(--yel-d); color: var(--yellow); border-color: var(--yellow); }
+.badge.red { background: var(--red-d); color: var(--red); border-color: var(--red); }
+.badge.purple { background: var(--purp-d); color: #9B7FFF; border-color: var(--purple); }
+
+/* PILLS */
+.pills { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+.pill { padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+.pill.account { background: rgba(0,212,170,0.15); color: var(--teal); }
+.pill.bank { background: rgba(107,78,255,0.15); color: #9B7FFF; }
+.pill.service { background: rgba(255,179,0,0.15); color: var(--yellow); }
+
+/* CHARTS */
+.chart-wrap { position: relative; }
+.chart-wrap canvas { max-height: 100%; }
+.ch-240 { height: 240px; }
+.ch-280 { height: 280px; }
+.ch-320 { height: 320px; }
+.ch-360 { height: 360px; }
+
+/* MONTH COMPARE */
+.month-comp { display: grid; grid-template-columns: 1fr auto 1fr; gap: 0; margin-bottom: 20px; align-items: center; }
+.mc-side { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 20px; }
+.mc-side.left { border-right: none; border-radius: 8px 0 0 8px; }
+.mc-side.right { border-left: none; border-radius: 0 8px 8px 0; }
+.mc-arrow { background: var(--border); color: var(--muted); font-size: 20px; padding: 20px 12px; display: flex; align-items: center; }
+.mc-month { font-size: 13px; font-weight: 700; color: var(--teal); margin-bottom: 6px; }
+.mc-total { font-size: 36px; font-weight: 800; margin-bottom: 8px; }
+.mc-detail { font-size: 12px; color: var(--muted); line-height: 1.7; }
+
+/* AGENT TABLE */
+.agt-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.agt-table th { text-align: left; padding: 8px 10px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; border-bottom: 1px solid var(--border); }
+.agt-table td { padding: 7px 10px; border-bottom: 1px solid rgba(42,42,90,0.5); }
+.agt-table tr:last-child td { border-bottom: none; }
+.agt-table tr:hover td { background: rgba(255,255,255,0.02); }
+.rank-num { color: var(--muted); font-weight: 700; width: 24px; }
+.bar-row { display: flex; align-items: center; gap: 8px; }
+.bar-bg { flex: 1; height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 3px; }
+
+/* TL SECTION */
+.tl-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.tl-name { font-size: 15px; font-weight: 700; }
+.tl-progress { font-size: 12px; color: var(--muted); }
+.tl-bar-wrap { height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; margin-bottom: 14px; overflow: hidden; }
+.tl-bar { height: 100%; border-radius: 3px; }
+
+/* FINDINGS */
+.finding { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; border-left: 4px solid; }
+.finding-num { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; font-size: 12px; font-weight: 800; margin-bottom: 10px; }
+.finding-title { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+.finding-body { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+@media (max-width: 900px) {
+  .g6,.g5,.g4,.g3,.g2,.g2-3 { grid-template-columns: 1fr; }
+  .month-comp { grid-template-columns: 1fr; }
+  .mc-side.left,.mc-side.right { border-radius: 8px; border: 1px solid var(--border); }
+  .mc-arrow { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="logo">MAJORITY</div>
+  <div class="header-text">
+    <h1>Improper Escalations — Junio 2026</h1>
+    <p>Customer Service Quality Tracker · Análisis de Escalaciones Impropias · TL: Jhoancy Gonzalez &amp; Sergio Rincón</p>
+  </div>
+  <div class="header-badge">📅 Jun 01 – Jun 21, 2026</div>
+</div>
+
+<!-- LEGEND -->
+<div class="legend">
+  <span style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.6px;">LEYENDA:</span>
+  <div class="li"><div class="dot" style="background:var(--teal)"></div>Account</div>
+  <div class="li"><div class="dot" style="background:var(--purple)"></div>Bank</div>
+  <div class="li"><div class="dot" style="background:var(--yellow)"></div>Service</div>
+  <div class="li" style="margin-left:12px"><div class="dot" style="background:#00C853"></div>Jhoancy Gonzalez</div>
+  <div class="li"><div class="dot" style="background:#FF4757"></div>Sergio Rincón</div>
+  <div class="li" style="margin-left:12px"><div class="dot" style="background:#2A5A3A"></div>Bajo</div>
+  <div class="li"><div class="dot" style="background:#5A5A1A"></div>Medio</div>
+  <div class="li"><div class="dot" style="background:#5A1A1A"></div>Alto</div>
+</div>
+
+<!-- SECTION: RESUMEN GENERAL -->
+<div class="sec">Resumen General</div>
+<div class="g6">
+  <div class="card t-teal">
+    <div class="kpi-label">Total Improper</div>
+    <div class="kpi-val teal">422</div>
+    <div class="kpi-sub">3 semanas</div>
+  </div>
+  <div class="card t-green">
+    <div class="kpi-label">Jhoancy Gonzalez</div>
+    <div class="kpi-val green">182</div>
+    <div class="kpi-sub">43.1% del total</div>
+  </div>
+  <div class="card t-red">
+    <div class="kpi-label">Sergio Rincón</div>
+    <div class="kpi-val red">240</div>
+    <div class="kpi-sub">56.9% del total</div>
+  </div>
+  <div class="card t-teal">
+    <div class="kpi-label">Account</div>
+    <div class="kpi-val teal">233</div>
+    <div class="kpi-sub">55.2% del total</div>
+  </div>
+  <div class="card t-purple">
+    <div class="kpi-label">Bank</div>
+    <div class="kpi-val purple">125</div>
+    <div class="kpi-sub">29.6% del total</div>
+  </div>
+  <div class="card t-yellow">
+    <div class="kpi-label">Service</div>
+    <div class="kpi-val yellow">64</div>
+    <div class="kpi-sub">15.2% del total</div>
+  </div>
+</div>
+
+<!-- SEMANA A SEMANA -->
+<div class="sec">Semana a Semana</div>
+<div class="g3">
+  <div class="week-card">
+    <div class="wk-title">Semana 1</div>
+    <div class="wk-dates">Jun 01–07</div>
+    <div class="wk-total">166</div>
+    <div class="wk-detail">Bank: 45 &nbsp;·&nbsp; Acct: 95 &nbsp;·&nbsp; Svc: 26</div>
+    <div class="wk-tl">J: 66 &nbsp;·&nbsp; S: 100</div>
+  </div>
+  <div class="week-card">
+    <div class="wk-title">Semana 2</div>
+    <div class="wk-dates">Jun 08–14</div>
+    <div class="wk-total">114</div>
+    <div class="wk-detail">Bank: 28 &nbsp;·&nbsp; Acct: 74 &nbsp;·&nbsp; Svc: 12</div>
+    <div class="wk-tl">J: 54 &nbsp;·&nbsp; S: 60</div>
+  </div>
+  <div class="week-card">
+    <div class="wk-title">Semana 3</div>
+    <div class="wk-dates">Jun 15–21</div>
+    <div class="wk-total">142</div>
+    <div class="wk-detail">Bank: 52 &nbsp;·&nbsp; Acct: 64 &nbsp;·&nbsp; Svc: 26</div>
+    <div class="wk-tl">J: 62 &nbsp;·&nbsp; S: 80</div>
+  </div>
+</div>
+
+<!-- CHARTS ROW 1 -->
+<div class="g2">
+  <div class="card">
+    <div class="sec" style="margin-bottom:10px">Escalaciones por Área — Semana a Semana</div>
+    <div class="chart-wrap ch-280"><canvas id="areaWeekChart"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="sec" style="margin-bottom:10px">Distribución por TL — Junio</div>
+    <div class="chart-wrap ch-280"><canvas id="tlChart"></canvas></div>
+  </div>
+</div>
+
+<!-- CHARTS ROW 2 -->
+<div class="g2">
+  <div class="card">
+    <div class="sec" style="margin-bottom:10px">Tendencia Semanal — Volumen Total</div>
+    <div class="chart-wrap ch-260"><canvas id="trendChart"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="sec" style="margin-bottom:10px">Tipos de Error por Semana (stacked)</div>
+    <div class="chart-wrap ch-260"><canvas id="errorStackChart"></canvas></div>
+  </div>
+</div>
+
+<!-- CHARTS ROW 3 -->
+<div class="g2">
+  <div class="card">
+    <div class="sec" style="margin-bottom:10px">Desglose por TL — Semana a Semana</div>
+    <div class="chart-wrap ch-260"><canvas id="tlWeekChart"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="sec" style="margin-bottom:10px">Top Tipos de Error — Total Junio</div>
+    <div class="chart-wrap ch-260"><canvas id="errorTotalChart"></canvas></div>
+  </div>
+</div>
+
+<!-- DETALLE POR TL -->
+<div class="sec">Detalle por Team Leader</div>
+<div class="g2">
+  <!-- Jhoancy -->
+  <div class="card t-green">
+    <div class="tl-header">
+      <div>
+        <div class="tl-name">Jhoancy Gonzalez — 182 escalaciones impropias</div>
+        <div class="tl-progress" style="margin-top:4px">Jhoancy Gonzalez <strong>182</strong> / 422</div>
+      </div>
+      <span class="badge green">43.1%</span>
+    </div>
+    <div class="tl-bar-wrap">
+      <div class="tl-bar" style="width:43.1%;background:var(--green)"></div>
+    </div>
+    <div class="sec purple" style="font-size:12px;margin-bottom:10px">Top Agentes</div>
+    <table class="agt-table">
+      <thead><tr><th>#</th><th>Agente</th><th>Escalaciones</th><th>Volumen</th></tr></thead>
+      <tbody id="jhoancyAgents"></tbody>
+    </table>
+  </div>
+  <!-- Sergio -->
+  <div class="card t-red">
+    <div class="tl-header">
+      <div>
+        <div class="tl-name">Sergio Rincón — 240 escalaciones impropias</div>
+        <div class="tl-progress" style="margin-top:4px">Sergio Rincón <strong>240</strong> / 422</div>
+      </div>
+      <span class="badge red">56.9%</span>
+    </div>
+    <div class="tl-bar-wrap">
+      <div class="tl-bar" style="width:56.9%;background:var(--red)"></div>
+    </div>
+    <div class="sec red" style="font-size:12px;margin-bottom:10px">Top Agentes</div>
+    <table class="agt-table">
+      <thead><tr><th>#</th><th>Agente</th><th>Escalaciones</th><th>Volumen</th></tr></thead>
+      <tbody id="sergioAgents"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- TOP 10 COMBINADO -->
+<div class="sec red">Top 10 Agentes Combinados — Junio 2026</div>
+<div class="card g1">
+  <table class="agt-table">
+    <thead>
+      <tr>
+        <th>#</th><th>Agente</th><th>TL</th>
+        <th>Jun 01–07</th><th>Jun 08–14</th><th>Jun 15–21</th><th>Total</th>
+      </tr>
+    </thead>
+    <tbody id="top10Table"></tbody>
+  </table>
+</div>
+
+<!-- TABLA MAESTRA -->
+<div class="sec">Tabla Maestra — Todos los Indicadores</div>
+<div class="card g1">
+  <table class="agt-table">
+    <thead>
+      <tr>
+        <th>Semana</th><th>Total</th><th>Jhoancy</th><th>Sergio</th>
+        <th>Account</th><th>Bank</th><th>Service</th>
+        <th>Esc. errada</th><th>Falta info</th><th>Innecesaria</th><th>Duplicado</th><th>Macro inc.</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Jun 01–07</td><td><strong>166</strong></td><td>66</td><td>100</td>
+        <td>95</td><td>45</td><td>26</td>
+        <td>95</td><td>18</td><td>1</td><td>13</td><td>4</td>
+      </tr>
+      <tr>
+        <td>Jun 08–14</td><td><strong>114</strong></td><td>54</td><td>60</td>
+        <td>74</td><td>28</td><td>12</td>
+        <td>28</td><td>33</td><td>22</td><td>9</td><td>0</td>
+      </tr>
+      <tr>
+        <td>Jun 15–21</td><td><strong>142</strong></td><td>62</td><td>80</td>
+        <td>64</td><td>52</td><td>26</td>
+        <td>37</td><td>45</td><td>45</td><td>13</td><td>0</td>
+      </tr>
+      <tr style="background:rgba(255,255,255,0.03);font-weight:700;">
+        <td>TOTAL</td><td>422</td><td>182</td><td>240</td>
+        <td>233</td><td>125</td><td>64</td>
+        <td>160</td><td>96</td><td>68</td><td>35</td><td>4</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- HALLAZGOS -->
+<div class="sec yellow">Hallazgos y Recomendaciones</div>
+<div class="g3">
+  <div class="finding" style="border-color:var(--red)">
+    <div class="finding-num" style="background:var(--red-d);color:var(--red)">01</div>
+    <div class="finding-title">Esc. errada: error #1 en semana 1</div>
+    <div class="finding-body">En Jun 01–07, <strong>95 de 166 casos (57%)</strong> son escalaciones erradas o incorrectas. Baja significativamente en sem. 2 (28) pero repunta en sem. 3 (37). Requiere refuerzo de macro correcta.</div>
+  </div>
+  <div class="finding" style="border-color:var(--yellow)">
+    <div class="finding-num" style="background:var(--yel-d);color:var(--yellow)">02</div>
+    <div class="finding-title">Escalaciones innecesarias: tendencia alcista</div>
+    <div class="finding-body">De 1 caso en Jun 01–07 a <strong>45 casos en Jun 15–21</strong>. Crecimiento de 4400%. El equipo de Sergio concentra la mayoría. Se requiere criterio de escalación claro.</div>
+  </div>
+  <div class="finding" style="border-color:var(--teal)">
+    <div class="finding-num" style="background:var(--teal-d);color:var(--teal)">03</div>
+    <div class="finding-title">Falta información: patrón persistente</div>
+    <div class="finding-body"><strong>96 casos totales (23%)</strong>. Aumenta semana a semana: 18 → 33 → 45. Principal causa: enlace de Hydra faltante y formularios incompletos al escalar.</div>
+  </div>
+  <div class="finding" style="border-color:var(--purple)">
+    <div class="finding-num" style="background:var(--purp-d);color:var(--purple)">04</div>
+    <div class="finding-title">Feedback: 70% cubierto</div>
+    <div class="finding-body"><strong>297 de 422 casos (70%)</strong> han recibido feedback. Quedan 123 casos pendientes. Priorizar cierre de feedback en sem. 1 (mayor volumen de esc. errada).</div>
+  </div>
+  <div class="finding" style="border-color:var(--green)">
+    <div class="finding-num" style="background:rgba(0,200,83,0.15);color:var(--green)">05</div>
+    <div class="finding-title">Ana Milena Parra: agente #1 del mes</div>
+    <div class="finding-body"><strong>23 casos</strong> en 3 semanas (13+3+7). Seguido por Juan Pablo Maldonado (19) y Manuela Roa Arias (17). Estos 3 agentes concentran el <strong>14%</strong> del total de junio.</div>
+  </div>
+  <div class="finding" style="border-color:var(--yellow)">
+    <div class="finding-num" style="background:var(--yel-d);color:var(--yellow)">06</div>
+    <div class="finding-title">Sergio lidera en volumen</div>
+    <div class="finding-body">Sergio Rincón acumula <strong>240 casos (57%)</strong> vs 182 de Jhoancy (43%). Su equipo domina en sem. 1 (100 vs 66) y sem. 3 (80 vs 62). Revisar carga y criterios del equipo.</div>
+  </div>
+</div>
+
+<div style="height:32px"></div>
+
+<script>
+// ── DATA ─────────────────────────────────────────────────────────────────────
+const WEEKS = ['Jun 01–07','Jun 08–14','Jun 15–21'];
+const C_TEAL = '#00D4AA', C_PURPLE = '#6B4EFF', C_YELLOW = '#FFB300';
+const C_RED = '#FF4757', C_GREEN = '#00C853', C_BLUE = '#2196F3';
+
+Chart.defaults.color = '#8888AA';
+Chart.defaults.borderColor = '#2A2A5A';
+Chart.defaults.font.family = "'Segoe UI', system-ui, sans-serif";
+Chart.defaults.font.size = 11;
+
+// Area by week stacked bar
+new Chart(document.getElementById('areaWeekChart'), {
+  type: 'bar',
+  data: {
+    labels: WEEKS,
+    datasets: [
+      { label: 'Account', data: [95, 74, 64], backgroundColor: C_TEAL, borderRadius: 0 },
+      { label: 'Bank',    data: [45, 28, 52], backgroundColor: C_PURPLE, borderRadius: 0 },
+      { label: 'Service', data: [26, 12, 26], backgroundColor: C_YELLOW, borderRadius: 4 }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, padding: 12 } } },
+    scales: {
+      x: { stacked: true, grid: { display: false } },
+      y: { stacked: true, grid: { color: '#1E1E42' } }
+    }
+  }
+});
+
+// TL doughnut
+new Chart(document.getElementById('tlChart'), {
+  type: 'doughnut',
+  data: {
+    labels: ['Jhoancy Gonzalez', 'Sergio Rincón'],
+    datasets: [{ data: [182, 240], backgroundColor: [C_GREEN, C_RED], borderWidth: 2, borderColor: '#1A1A3E' }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    cutout: '62%',
+    plugins: {
+      legend: { position: 'bottom', labels: { boxWidth: 10, padding: 14 } },
+      tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw} (${Math.round(ctx.raw/422*100)}%)` } }
+    }
+  }
+});
+
+// Trend line
+new Chart(document.getElementById('trendChart'), {
+  type: 'line',
+  data: {
+    labels: WEEKS,
+    datasets: [{
+      label: 'Total',
+      data: [166, 114, 142],
+      borderColor: C_TEAL, backgroundColor: 'rgba(0,212,170,0.1)',
+      fill: true, tension: 0.35, pointBackgroundColor: C_TEAL, pointRadius: 5
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { display: false } },
+      y: { grid: { color: '#1E1E42' }, beginAtZero: true }
+    }
+  }
+});
+
+// Error stacked by week
+new Chart(document.getElementById('errorStackChart'), {
+  type: 'bar',
+  data: {
+    labels: WEEKS,
+    datasets: [
+      { label: 'Esc. errada',      data: [95, 28, 37], backgroundColor: C_RED },
+      { label: 'Falta info',       data: [18, 33, 45], backgroundColor: C_YELLOW },
+      { label: 'Esc. innecesaria', data: [1,  22, 45], backgroundColor: C_PURPLE },
+      { label: 'Caso duplicado',   data: [13, 9,  13], backgroundColor: C_BLUE },
+      { label: 'Esc. incompleta',  data: [28, 0,  0],  backgroundColor: C_TEAL },
+      { label: 'Otros',            data: [11, 22, 2],  backgroundColor: '#444466' }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, padding: 8, font: { size: 10 } } } },
+    scales: {
+      x: { stacked: true, grid: { display: false } },
+      y: { stacked: true, grid: { color: '#1E1E42' } }
+    }
+  }
+});
+
+// TL by week grouped
+new Chart(document.getElementById('tlWeekChart'), {
+  type: 'bar',
+  data: {
+    labels: WEEKS,
+    datasets: [
+      { label: 'Jhoancy', data: [66, 54, 62], backgroundColor: C_GREEN, borderRadius: 4 },
+      { label: 'Sergio',  data: [100, 60, 80], backgroundColor: C_RED, borderRadius: 4 }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, padding: 14 } } },
+    scales: {
+      x: { grid: { display: false } },
+      y: { grid: { color: '#1E1E42' }, beginAtZero: true }
+    }
+  }
+});
+
+// Error total horizontal bar
+new Chart(document.getElementById('errorTotalChart'), {
+  type: 'bar',
+  data: {
+    labels: ['Esc. errada/incorrecta','Falta información','Esc. innecesaria','Esc. incompleta','Caso duplicado','Macro inc./errada','Otros'],
+    datasets: [{
+      data: [160, 96, 68, 28, 35, 4, 31],
+      backgroundColor: [C_RED, C_YELLOW, C_PURPLE, C_TEAL, C_BLUE, '#FF6B35', '#444466'],
+      borderRadius: 4
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: '#1E1E42' } },
+      y: { grid: { display: false }, ticks: { font: { size: 10 } } }
+    }
+  }
+});
+
+// ── AGENT TABLES ──────────────────────────────────────────────────────────────
+const jhoancyAgents = [
+  ['Juan Pablo Maldonado', 19], ['Adriana Rincón', 13], ['Valentina Parra', 13],
+  ['Daniel Leiter', 10], ['Jersson Lasso', 9], ['Paula Gonzalez', 8],
+  ['Carla Beltran', 7], ['David Felipe Medina', 7], ['Julian Esteban Acosta', 7],
+  ['Michel Tatiana Rivera', 7], ['Pedro Joaquin Lara Martinez', 7],
+  ['Johan Sebastian Chaparro', 6], ['Juan David Martinez', 6], ['Diana Angarita', 5],
+  ['Jesús David Guzmán', 5]
+];
+const sergioAgents = [
+  ['Ana Milena Parra', 23], ['Fausto Castro Castaño', 16], ['Derek Martín Navas', 14],
+  ['Manuela Roa Arias', 17], ['Daniela Pineda Sánchez', 16], ['William Montero', 14],
+  ['Brayan Jaimes', 12], ['Paula Cifuentes', 12], ['Jeicob Stiven Murillo', 12],
+  ['Andrés Gonzales Carvajal', 9], ['Willver Ferney Alarcón', 9],
+  ['Maryori Bermudez Caicedo', 9], ['Gina Milbar Viveros', 8],
+  ['Fernando Andres Mesa', 7], ['Lirayen Maholly Lugo', 7]
+];
+
+function buildAgentTable(tbodyId, agents, color) {
+  const max = agents[0][1];
+  const tbody = document.getElementById(tbodyId);
+  agents.forEach(([name, cnt], i) => {
+    const pct = Math.round(cnt/max*100);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="rank-num">${i+1}</td>
+      <td>${name}</td>
+      <td><strong>${cnt}</strong></td>
+      <td><div class="bar-row">
+        <div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div>
+        <span style="font-size:10px;color:var(--muted);width:28px">${cnt}</span>
+      </div></td>`;
+    tbody.appendChild(tr);
+  });
+}
+buildAgentTable('jhoancyAgents', jhoancyAgents, C_GREEN);
+buildAgentTable('sergioAgents', sergioAgents, C_RED);
+
+// TOP 10 COMBINED
+const top10 = [
+  ['Ana Milena Parra',              'Sergio Rincón',   13,3,7,  23],
+  ['Juan Pablo Maldonado',          'Jhoancy Gonzalez', 5,6,8,  19],
+  ['Manuela Roa Arias',             'Sergio Rincón',    5,5,7,  17],
+  ['Daniela Pineda Sánchez',        'Sergio Rincón',    5,6,5,  16],
+  ['Fausto Castro Castaño',         'Sergio Rincón',   12,1,3,  16],
+  ['Derek Martín Navas',            'Sergio Rincón',    4,8,2,  14],
+  ['William Montero',               'Sergio Rincón',    5,5,4,  14],
+  ['Adriana Rincón',                'Jhoancy Gonzalez', 5,2,6,  13],
+  ['Valentina Parra',               'Jhoancy Gonzalez', 6,5,2,  13],
+  ['Paula Cifuentes',               'Sergio Rincón',    5,3,4,  12],
+];
+const t10tbody = document.getElementById('top10Table');
+top10.forEach(([name, tl, w1, w2, w3, total], i) => {
+  const isJh = tl === 'Jhoancy Gonzalez';
+  const tlColor = isJh ? C_GREEN : C_RED;
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td class="rank-num">${i+1}</td>
+    <td><strong>${name}</strong></td>
+    <td><span style="color:${tlColor};font-size:11px;font-weight:600">${tl}</span></td>
+    <td>${w1}</td><td>${w2}</td><td>${w3}</td>
+    <td><strong style="color:var(--teal)">${total}</strong></td>`;
+  t10tbody.appendChild(tr);
+});
+</script>
+</body>
+</html>
